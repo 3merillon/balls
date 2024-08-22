@@ -1,0 +1,607 @@
+<!--
+MIT License
+
+2024, Cyril Monkewitz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>2D Physics Simulator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .widget {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+            transition: max-height 0.5s ease-in-out, visibility 0.5s ease-in-out, opacity 0.5s ease-in-out;
+            overflow: hidden;
+            max-height: 0;
+            visibility: hidden;
+            opacity: 0;
+            width: 250px; /* Set a fixed width to avoid changing width */
+            border: 2px solid #000000; /* Black border */
+        }
+        .widget.open {
+            max-height: 400px; /* Adjust based on content */
+            visibility: visible;
+            opacity: 1;
+        }
+        #general-widget {
+            top: 50px;
+            right: 10px;
+        }
+        .dropdown-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .triangle {
+            position: relative;
+            width: 20px;
+            height: 20px;
+            transition: all 0.5s ease-in-out;
+        }
+        .triangle::before,
+        .triangle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 2px;
+            background-color: #ffa800;
+            transform-origin: center;
+            transition: all 0.5s ease-in-out;
+        }
+        .triangle::before {
+            transform: translate(-50%, -50%) rotate(270deg);
+        }
+        .triangle::after {
+            transform: translate(-50%, -50%) rotate(180deg);
+        }
+        .triangle:hover::before,
+        .triangle:hover::after {
+            filter: drop-shadow(0 0 10px #ffa800);
+        }
+        .triangle.open::before {
+            transform: translate(-50%, -50%) rotate(0deg);
+        }
+        .triangle.open::after {
+            transform: translate(-50%, -50%) rotate(0deg);
+        }
+        .triangle.open::before,
+        .triangle.open::after {
+            background-color: #ff0000;
+        }
+        .triangle.open:hover::before,
+        .triangle.open:hover::after {
+            filter: drop-shadow(0 0 10px #ff0000);
+        }
+        .slider-container {
+            margin-bottom: 10px;
+        }
+        .slider-container label {
+            display: inline-block;
+            width: 200px;
+            font-size: 12px; /* Smaller font size */
+        }
+        .slider-container input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 2px;
+            background: #ffa800;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #ffa800;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 168, 0, 0.7);
+        }
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            background: #ffa800;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 168, 0, 0.7);
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        #spawn-button {
+            position: absolute;
+            top: 10px;
+            right: 50px; /* Adjusted to be next to the dropdown button */
+            height: 30px; /* Match the height of the dropdown button */
+            background-color: transparent;
+            color: #ffa800;
+            border: 2px solid #ffa800;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px; /* Smaller font size */
+            transition: all 0.3s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #spawn-button:hover {
+            background-color: rgba(255, 168, 0, 0.5); /* 70% opaque glow */
+            color: #121212;
+            box-shadow: 0 0 10px #ffa800;
+        }
+        #playPauseBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 30px;
+            height: 30px;
+            background-color: transparent;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pp {
+            position: relative;
+            width: 20px;
+            height: 20px;
+            transition: all 0.5s ease-in-out;
+        }
+        .pp::before,
+        .pp::after,
+        .pp span {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 2px;
+            background-color: #ffa800;
+            transform-origin: center;
+            transition: all 0.5s ease-in-out;
+        }
+        .pp::before {
+            transform: translate(0%, -240%) rotate(30deg);
+        }
+        .pp::after {
+            transform: translate(0%, 240%) rotate(-30deg);
+        }
+        .pp span {
+            transform: translate(-40%, 0%) rotate(90deg);
+        }
+        .pp:hover::before,
+        .pp:hover::after,
+        .pp:hover span {
+            filter: drop-shadow(0 0 10px #ffa800);
+        }
+        .pp.open::before {
+            transform: translate(-20%, 0%) rotate(270deg) ;
+        }
+        .pp.open::after {
+            transform: translate(20%, 0%) rotate(90deg);
+        }
+        .pp.open span {
+            transform: translate(20%, 0%) rotate(90deg);
+        }
+        .pp.open::before,
+        .pp.open::after,
+        .pp.open span {
+            background-color: #ff0000;
+        }
+        .pp.open:hover::before,
+        .pp.open::after,
+        .pp.open span {
+            filter: drop-shadow(0 0 10px #ff0000);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="general-widget" class="widget"></div>
+    <div class="dropdown-button">
+        <div class="triangle"></div>
+    </div>
+    <button id="spawn-button">spawn ball</button>
+    <button id="playPauseBtn">
+        <div class="pp">
+            <span></span>
+        </div>
+    </button>
+    <script type="module">
+        import { Ball, clamp, handleWallCollision, checkCollision, setGravity, setAirDensity, setDragCoefficient, setRotationalDragCoefficient } from './physics.js';
+        import { initializeMusic, audioContext, mainGainNode, isPlaying, setIsPlaying } from './music.js';
+
+        // Constants and variables
+        let CANVAS_WIDTH = window.innerWidth;
+        let CANVAS_HEIGHT = window.innerHeight;
+        let dragStartTime, dragStartX, dragStartY;
+        const dragHistory = [];
+        const dragHistoryMaxLength = 10;
+        const dragHistoryTimeWindow = 50;
+
+        // Main simulation
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const balls = [];
+        let selectedBall = null;
+        let isDragging = false;
+
+        // Function to create a new ball with subdued earthen tones
+        function createBall() {
+			const radius = Math.random() * 30 + 10;
+			const x = Math.random() * (CANVAS_WIDTH - 2 * radius) + radius;
+			const y = Math.random() * (CANVAS_HEIGHT - 2 * radius) + radius;
+			const mass = Math.PI * radius * radius * 0.1; // Assuming constant density
+			const hue = getRandomInt(180, 300); // Extend hue to include blues and purples
+			const saturation = getRandomInt(20, 90); // Lower saturation for subdued effect
+			const lightness = getRandomInt(50, 100); // Middle range for muted appearance
+			const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+			return new Ball(x, y, radius, mass, color);
+		}
+
+        // Utility function to generate a random integer between min and max (inclusive)
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Spawn initial balls
+        for (let i = 0; i < 3; i++) {
+            balls.push(createBall());
+        }
+
+        // Widget for general variables
+        const generalWidget = document.getElementById('general-widget');
+
+        function createSlider(name, min, max, value, step) {
+            const container = document.createElement('div');
+            container.className = 'slider-container';
+            container.innerHTML = `
+                <label for="${name}-slider">${name}: <span id="${name}-value">${value}</span></label>
+                <input type="range" id="${name}-slider" min="${min}" max="${max}" value="${value}" step="${step}">
+            `;
+            return container;
+        }
+
+        function initializeGeneralWidget() {
+            generalWidget.innerHTML = ''; // Clear existing content
+            generalWidget.appendChild(createSlider('gravity', 0, 22, 9.81, 0.01));
+            generalWidget.appendChild(createSlider('air density', 0, 0.1, 0.014, 0.001));
+            generalWidget.appendChild(createSlider('drag coefficient', 0, 0.2, 0.05, 0.001));
+            generalWidget.appendChild(createSlider('rotational drag', 0, 0.2, 0.01, 0.001));
+
+            document.getElementById('gravity-slider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                setGravity(value);
+                document.getElementById('gravity-value').textContent = value.toFixed(2);
+            });
+
+            document.getElementById('air density-slider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                setAirDensity(value);
+                document.getElementById('air density-value').textContent = value.toFixed(3);
+            });
+
+            document.getElementById('drag coefficient-slider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                setDragCoefficient(value);
+                document.getElementById('drag coefficient-value').textContent = value.toFixed(3);
+            });
+
+            document.getElementById('rotational drag-slider').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                setRotationalDragCoefficient(value);
+                document.getElementById('rotational drag-value').textContent = value.toFixed(3);
+            });
+        }
+
+        function updateDraggedBall(currentTime) {
+            if (selectedBall && isDragging) {
+                let dt = (currentTime - dragStartTime) / 1000; // Convert to seconds
+                const recentPositions = dragHistory.filter(pos => currentTime - pos.time <= dragHistoryTimeWindow);
+
+                let dx, dy;
+
+                if (recentPositions.length > 1) {
+                    const oldestPos = recentPositions[0];
+                    const newestPos = recentPositions[recentPositions.length - 1];
+                    dx = newestPos.x - oldestPos.x;
+                    dy = newestPos.y - oldestPos.y;
+                    dt = (newestPos.time - oldestPos.time) / 1000;
+
+                    // Only set velocity if there's significant movement and dt is valid
+                    if (Math.abs(dx) > 1 || Math.abs(dy) > 1 && !isNaN(dt) && dt > 0) {
+                        selectedBall.vx = dx / dt;
+                        selectedBall.vy = dy / dt;
+                    } else {
+                        // If the ball was barely moved or dt is invalid, set linear velocities to 0
+                        selectedBall.vx = 0;
+                        selectedBall.vy = 0;
+                    }
+
+                    // Update the dragged ball's position
+                    selectedBall.x = newestPos.x;
+                    selectedBall.y = newestPos.y;
+                } else {
+                    // If there's not enough drag history, set linear velocities to 0
+                    selectedBall.vx = 0;
+                    selectedBall.vy = 0;
+                }
+
+                dragStartTime = currentTime;
+                dragStartX = selectedBall.x;
+                dragStartY = selectedBall.y;
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            for (const ball of balls) {
+                const dx = mouseX - ball.x;
+                const dy = mouseY - ball.y;
+                if (dx * dx + dy * dy <= ball.radius * ball.radius) {
+                    selectedBall = ball;
+                    selectedBall.selected = true;
+                    isDragging = true;
+                    dragStartTime = performance.now();
+                    dragStartX = mouseX;
+                    dragStartY = mouseY;
+                    selectedBall.angularVelocity = 0; // Reset angular velocity when starting to drag
+                    dragHistory.length = 0;
+                    dragHistory.push({ x: mouseX, y: mouseY, time: dragStartTime });
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (selectedBall && isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                if (mouseX < 0 || mouseX > CANVAS_WIDTH || mouseY < 0 || mouseY > CANVAS_HEIGHT) {
+                    selectedBall.selected = false;
+                    isDragging = false;
+                    return;
+                }
+                selectedBall.x = mouseX;
+                selectedBall.y = mouseY;
+                dragHistory.push({ x: mouseX, y: mouseY, time: performance.now() });
+                if (dragHistory.length > dragHistoryMaxLength) {
+                    dragHistory.shift();
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (selectedBall) {
+                selectedBall.selected = false;
+                isDragging = false;
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (selectedBall && isDragging) {
+                selectedBall.selected = false;
+                isDragging = false;
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+
+            for (const ball of balls) {
+                const dx = touchX - ball.x;
+                const dy = touchY - ball.y;
+                if (dx * dx + dy * dy <= ball.radius * ball.radius) {
+                    selectedBall = ball;
+                    selectedBall.selected = true;
+                    isDragging = true;
+                    dragStartTime = performance.now();
+                    dragStartX = touchX;
+                    dragStartY = touchY;
+                    selectedBall.angularVelocity = 0; // Reset angular velocity when starting to drag
+                    dragHistory.length = 0;
+                    dragHistory.push({ x: touchX, y: touchY, time: dragStartTime });
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (selectedBall && isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const touchX = touch.clientX - rect.left;
+                const touchY = touch.clientY - rect.top;
+                if (touchX < 0 || touchX > CANVAS_WIDTH || touchY < 0 || touchY > CANVAS_HEIGHT) {
+                    selectedBall.selected = false;
+                    isDragging = false;
+                    return;
+                }
+                selectedBall.x = touchX;
+                selectedBall.y = touchY;
+                dragHistory.push({ x: touchX, y: touchY, time: performance.now() });
+                if (dragHistory.length > dragHistoryMaxLength) {
+                    dragHistory.shift();
+                }
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (selectedBall) {
+                selectedBall.selected = false;
+                isDragging = false;
+            }
+        });
+
+        // Spawn button
+        const spawnButton = document.getElementById('spawn-button');
+        spawnButton.addEventListener('click', () => {
+            balls.push(createBall());
+        });
+
+        // Main game loop
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1); // Convert to seconds, cap at 0.1s
+            lastTime = currentTime;
+
+            updateDraggedBall(currentTime);
+
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Update ball positions and check for collisions
+            for (let i = 0; i < balls.length; i++) {
+                balls[i].update(dt);
+                for (let j = i + 1; j < balls.length; j++) {
+                    checkCollision(balls[i], balls[j]);
+                }
+            }
+
+            // Draw balls
+            for (const ball of balls) {
+                ball.draw(ctx);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resizeCanvas() {
+            CANVAS_WIDTH = window.innerWidth;
+            CANVAS_HEIGHT = window.innerHeight;
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            for (const ball of balls) {
+                if (ball.x + ball.radius > CANVAS_WIDTH) {
+                    ball.x = CANVAS_WIDTH - ball.radius;
+                }
+                if (ball.y + ball.radius > CANVAS_HEIGHT) {
+                    ball.y = CANVAS_HEIGHT - ball.radius;
+                }
+            }
+        });
+
+        initializeGeneralWidget();
+        resizeCanvas();
+        gameLoop(0);
+
+        // Dropdown button functionality
+        const dropdownButton = document.querySelector('.dropdown-button');
+        const generalWidgetElement = document.getElementById('general-widget');
+        let isDropdownOpen = false;
+
+        dropdownButton.addEventListener('click', () => {
+            isDropdownOpen = !isDropdownOpen;
+            if (isDropdownOpen) {
+                dropdownButton.querySelector('.triangle').classList.add('open');
+                generalWidgetElement.classList.add('open');
+            } else {
+                dropdownButton.querySelector('.triangle').classList.remove('open');
+                generalWidgetElement.classList.remove('open');
+            }
+        });
+
+        // Music controls
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const volumeSliderContainer = document.createElement('div');
+        volumeSliderContainer.className = 'slider-container';
+        volumeSliderContainer.style.position = 'absolute';
+        volumeSliderContainer.style.top = '10px';
+        volumeSliderContainer.style.left = '50px';
+        volumeSliderContainer.innerHTML = `
+            <input type="range" id="volumeSlider" min="0" max="100" value="25">
+        `;
+        document.body.appendChild(volumeSliderContainer);
+
+        const volumeSlider = document.getElementById('volumeSlider');
+        const pp = document.querySelector('.pp');
+
+        playPauseBtn.addEventListener('click', () => {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (!isPlaying) {
+                setIsPlaying(true);
+                pp.classList.add('open');
+                initializeMusic();
+            } else {
+                setIsPlaying(false);
+                pp.classList.remove('open');
+                if (mainGainNode) {
+                    mainGainNode.disconnect();
+                }
+            }
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            if (mainGainNode) {
+                mainGainNode.gain.setValueAtTime(e.target.value / 100, audioContext.currentTime);
+            }
+        });
+    </script>
+</body>
+</html>
