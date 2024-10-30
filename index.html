@@ -257,7 +257,7 @@ SOFTWARE.
         </div>
     </button>
     <script type="module">
-        import { Ball, clamp, handleWallCollision, checkCollision, setGravity, setAirDensity, setDragCoefficient, setRotationalDragCoefficient } from './physics.js';
+        import { Ball, clamp, handleWallCollision, checkCollision, setGravity, setAirDensity, setDragCoefficient, setRotationalDragCoefficient, updateCanvasDimensions } from './physics.js';
         import { initializeMusic, audioContext, mainGainNode, isPlaying, setIsPlaying } from './music.js';
 
         // Constants and variables
@@ -526,11 +526,58 @@ SOFTWARE.
         }
 
         function resizeCanvas() {
+            // Store old dimensions
+            const oldWidth = CANVAS_WIDTH;
+            const oldHeight = CANVAS_HEIGHT;
+            
+            // Update to new dimensions
             CANVAS_WIDTH = window.innerWidth;
             CANVAS_HEIGHT = window.innerHeight;
+            
+            // Update canvas size
             canvas.width = CANVAS_WIDTH;
             canvas.height = CANVAS_HEIGHT;
+            
+            // Update physics dimensions
+            updateCanvasDimensions(CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // Calculate scaling factors
+            const scaleX = CANVAS_WIDTH / oldWidth;
+            const scaleY = CANVAS_HEIGHT / oldHeight;
+            
+            // Update ball positions proportionally
+            balls.forEach(ball => {
+                // Scale positions while maintaining relative position
+                ball.x = Math.min(Math.max(ball.radius, ball.x * scaleX), CANVAS_WIDTH - ball.radius);
+                ball.y = Math.min(Math.max(ball.radius, ball.y * scaleY), CANVAS_HEIGHT - ball.radius);
+                
+                // Stop balls that would be stuck in walls
+                if (ball.x <= ball.radius || ball.x >= CANVAS_WIDTH - ball.radius) {
+                    ball.vx = 0;
+                }
+                if (ball.y <= ball.radius || ball.y >= CANVAS_HEIGHT - ball.radius) {
+                    ball.vy = 0;
+                }
+            });
         }
+
+        // Debounce function to prevent too frequent updates
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Replace your existing resize event listener with this:
+        window.addEventListener('resize', debounce(() => {
+            resizeCanvas();
+        }, 250));
 
         window.addEventListener('resize', () => {
             resizeCanvas();

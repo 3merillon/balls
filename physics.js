@@ -29,6 +29,10 @@ let ROTATIONAL_DRAG_COEFFICIENT = 0.01;
 let CANVAS_WIDTH = window.innerWidth;
 let CANVAS_HEIGHT = window.innerHeight;
 
+export function updateCanvasDimensions(width, height) {
+    CANVAS_WIDTH = width;
+    CANVAS_HEIGHT = height;
+}
 
 export function setGravity(value) {
     GRAVITY = value * 100;
